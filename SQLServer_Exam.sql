@@ -47,6 +47,8 @@ create table Appointments (
 create index ix_IndexForPatientname on Patients (PatientName) include (PatientEmail, PatientPhone)
 
 
+
+
 --Q2
 --Normalizating the table
 -- | OrderID | CustomerName | Product1 | Product2 | Product3 | Address | TotalAmount | 
@@ -97,6 +99,9 @@ create table OrderDetails(
 );
 
 
+
+
+
 --Section B
 --Q3
 --Sample table
@@ -128,6 +133,9 @@ where datediff(MONTH,OrderDate, Getdate()) <=6
 group by CustomerID
 having Count(distinct month(OrderDate)) = 6
 
+
+
+
 --Q4
 create table Employee (
 	EmployeeID int,
@@ -141,7 +149,22 @@ insert into Employee values
 (103, 101, 'Charles'),
 (104, 102, 'David');
 
--------------------------------------------
+with Relation AS (
+    select EmployeeID, Name, ManagerId
+    from Employee
+    where ManagerId is null
+ 
+    union all
+ 
+    select e.EmployeeId, e.Name, e.ManagerId
+    FROM Employee e
+    join Relation r on e.ManagerId = r.EmployeeId
+)
+
+select * from Relation;
+
+
+
 
 --Q5
 -- Smaple Table with data
@@ -160,6 +183,9 @@ insert into Employees1 values
 select max(Salary) from Employees1
 where Salary < (select max(Salary)from Employees1)
 
+
+
+
 --Q6
 --create table 
 Create table Sales (
@@ -167,6 +193,8 @@ Create table Sales (
 	SalesDate date, 
 	Amount decimal(10,2)
 );
+
+
 
 
 
@@ -226,6 +254,9 @@ end;
 EXEC sp_OrderDetails @OrderID = 5001;
 
 
+
+
+
 --Q8. 
 create table Customers2 (
 	CustomerID int primary key,
@@ -271,6 +302,43 @@ return (
 SELECT * FROM dbo.getCustomerNotPlaced(2);
 
 
+
+
+--Q9
+create table Orders3 (
+	OrderID int primary key, 
+	CustomerID int, 
+	OrderDate date,
+	TotalAmount decimal (10,2)
+);
+
+insert into Orders3 values
+(1, 101, '2025-06-09', 1000),
+(2, 102, '2025-06-10', 2500),
+(3, 103, '2025-06-17', 3500),
+(4, 101, '2025-06-10', 500),
+(5, 101, '2025-06-11', 2000),
+(6, 101, '2025-06-12', 300),
+(7, 101, '2025-06-13', 800),
+(8, 101, '2025-06-14', 900);
+
+
+select * from Orders3
+
+alter view vw_CustomerRecentOrder
+as
+with CTE_Customer as(
+	select CustomerID from Orders3
+	group by CustomerID
+	having count(CustomerID) > 5
+)
+select CustomerID,  max(OrderDate) as OrderDate, TotalAmount from Orders3 
+where CustomerID in (select CustomerID from CTE_Customer) 
+group by CustomerID, TotalAmount;
+
+
+
+
 --10
 alter function GetSquare (
 	@Number int
@@ -282,6 +350,9 @@ begin
 end
 
 select dbo.GetSquare(2)
+
+
+
 
 
 --Q11 
@@ -306,6 +377,9 @@ set Price = 99.99
 where ProductID = 1;
 
 select * from Products1;
+
+
+
 
 
 --Q12
@@ -346,4 +420,104 @@ delete from Employee2
 where EmployeeID = 1;
 
 
---Q13. 
+
+
+--Q13. UDDT
+create type PhoneType from varchar(20) not null;
+
+create table Students (
+	StudentID int primary key,
+	StudentName varchar(80),
+	StudentPhone PhoneType check(StudentPhone like '+%' and len(StudentPhone) >= 10)
+);
+
+insert into Students values
+(1, 'Alice', '+9987876753')
+
+
+
+
+--Q14. 
+select * from Students;
+
+create table ErrorLog(
+	ErrorLog int identity(1,1) primary key,
+	ErrorNumber int,
+	ErrorMessage varchar(max),
+	Timestamp time
+);
+select * from ErrorLog;
+
+
+begin transaction
+begin try
+	insert into Students values 
+	(2, 'Bob', '9987876545')
+	commit transaction
+end try
+begin catch 
+	rollback transaction
+	print 'Error - occurre - '+ error_message()
+	insert into ErrorLog values
+	(ERROR_NUMBER(), ERROR_MESSAGE(), cast(getdate() as time))
+end catch
+
+
+
+--Section E
+--Q15.
+Create table Trainees(
+	TraineeID int identity(1,1) primary key,
+	TraineeName varchar(90),
+	TraineeEmail varchar(90),
+	TraineePhone varchar(30),
+	JoinDate date
+);
+
+create table Trainers(
+	TrainerID int identity(101, 1) primary key, 
+	TrainerName varchar(90),
+	DomainID int,
+	TrainerEmail varchar(90),
+	TrainerPhone varchar(30),
+	foreign key (DomainID) references Domains(DomainID)
+);
+
+create table Domains(
+	DomainID int identity(201, 1) primary key,
+	DomainName varchar(70)
+);
+
+create table Sessions (
+	SessionID int identity(301,1) primary key,
+	SessionDate date,
+	SessionTime time,
+	TraineriD int,
+	TraineeID int,
+	TopicID int,
+	foreign key (TrainerID) references Trainers(TrainerID),
+	foreign key (TraineeID) references Trainees(TraineeID),
+	foreign key (TopicID) references Topics(TopicID)
+);
+
+create table Topics(
+	TopicID int identity(401,1) primary key,
+	TopicName varchar(80)
+);
+
+create table Attendance(
+	AttendanceID int identity(501,1) primary key,
+	AttendanceDate date,
+	SessionID int,
+	TraineeID int, 
+	StatusID int,
+
+	foreign key (SessionID) references Sessions(SessionID),
+	foreign key (TraineeID) references Trainees(TraineeID),
+	foreign key (StatusID) references A_Status(StatusID)
+);
+
+create table A_Status(
+	StatusID int identity(601,1) primary key,
+	StatusName varchar(60)
+);
