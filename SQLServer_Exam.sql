@@ -134,8 +134,6 @@ group by CustomerID
 having Count(distinct month(OrderDate)) = 6
 
 
-
-
 --Q4
 create table Employee (
 	EmployeeID int,
@@ -162,7 +160,6 @@ with Relation AS (
 )
 
 select * from Relation;
-
 
 
 
@@ -193,8 +190,25 @@ Create table Sales (
 	SalesDate date, 
 	Amount decimal(10,2)
 );
+insert into Sales values
+(1, '2025-06-01', 200.00),
+(1, '2025-06-02', 150.00),
+(1, '2025-06-04', 250.00),
+(1, '2025-06-07', 300.00),
+(1, '2025-06-08', 100.00),
+(2, '2025-06-01', 500.00),
+(2, '2025-06-03', 400.00),
+(2, '2025-06-05', 300.00),
+(2, '2025-06-07', 350.00),
+(2, '2025-06-08', 450.00);
 
+select * from Sales;
 
+select s1.ProductID, s1.SalesDate, avg(s2.Amount) as Average from Sales s1
+left join Sales s2 on s1.ProductID = s2.ProductID
+where  s2.SalesDate between dateadd(day, -6, s1.SalesDate) and s1.SalesDate
+group by s1.ProductID, s1.SalesDate
+order by s1.ProductID,s1.SalesDate;	
 
 
 
@@ -338,7 +352,6 @@ group by CustomerID, TotalAmount;
 
 
 
-
 --10
 alter function GetSquare (
 	@Number int
@@ -402,16 +415,13 @@ insert into Employee2 values
 select * from Employee2;
 select * from EmployeeArchive
 
-create trigger tr_PreventDeleteRow
+create or alter trigger tr_PreventDeleteRow
 on Employee2
 after delete 
 as
 begin
-	declare @Date datetime , @EmployeeID int
-	select @EmployeeID = EmployeeID from deleted
-	set @Date = getdate()
-	insert into EmployeeArchive values
-	(@EmployeeID, @Date);
+	insert into EmployeeArchive
+	select EmployeeID , getdate() from deleted
 
 	print 'Deletion of Row is Successfull'
 end
@@ -433,8 +443,6 @@ create table Students (
 
 insert into Students values
 (1, 'Alice', '+9987876753')
-
-
 
 
 --Q14. 
@@ -521,3 +529,113 @@ create table A_Status(
 	StatusID int identity(601,1) primary key,
 	StatusName varchar(60)
 );
+
+
+
+insert into Domains (DomainName)
+values 
+('Full Stack Development'),
+('Data Science'),
+('Cloud Computing');
+
+insert into Topics (TopicName)
+values 
+('HTML & CSS Basics'),
+('Python Programming'),
+('AWS Introduction');
+
+insert into Trainees (TraineeName, TraineeEmail, TraineePhone, JoinDate)
+values 
+('Sabari Raj', 'sabari@example.com', '9876543210', '2025-06-01'),
+('JS', 'JS@example.com', '9123456780', '2025-06-03');
+
+insert into Trainers (TrainerName, DomainID, TrainerEmail, TrainerPhone)
+values
+('Subha', 201, 'subha@trainers.com', '9000012345'),
+('Sharmila', 202, 'sharmila@trainers.com', '9000098765');
+
+insert into Sessions (SessionDate, SessionTime, TrainerID, TraineeID, TopicID)
+values 
+('2025-06-10', '10:00:00', 101, 1, 401),
+('2025-06-11', '14:00:00', 102, 2, 402),
+('2025-06-12', '11:30:00', 101, 2, 403);
+
+insert into A_Status (StatusName)
+values 
+('Present'),
+('Absent');
+
+insert into Attendance (AttendanceDate, SessionID, TraineeID, StatusID)
+values
+('2025-06-10', 301, 1, 601),
+('2025-06-11', 302, 2, 602),
+('2025-06-12', 303, 2, 601);
+
+
+select * from Domains
+select * from Topics
+select * from Trainees
+select * from Trainers
+select * from Sessions
+select * from A_Status
+Select * from Attendance
+
+-- Q15 *(2)
+create procedure sp_Attendance 
+	@SessionID int,
+	@TraineeID int,
+	@StatusID int
+as
+begin
+	insert into Attendance values 
+	(Getdate(), @SessionID, @TraineeID, @StatusID, cast(getdate() as time))
+
+	print 'Success'
+end;
+
+exec sp_attendance 303, 2, 601
+
+
+--Q15 (3)
+create or alter view vw_TraineeAttendanceReport
+as
+	select a.TraineeID, t.TraineeName, (cast(count(*) as float)/s.TotalSession)*100 as AttendanceRate from Attendance a
+	join (select TraineeID, count(*) as TotalSession from Attendance group by TraineeID) s on a.TraineeID = s.TraineeID
+	join Trainees t on t.TraineeID = a.TraineeID
+	where a.StatusID = 601 
+	group by a.TraineeID, t.TraineeName, s.TotalSession;
+
+select * from vw_TraineeAttendanceReport;
+
+
+--Q15 (4) 
+create table warning (
+	WarningID int identity(4001, 1) primary key,
+	TraineeID int,
+	Percentage int
+);
+
+create function GetPrecentage()
+returns table
+as
+return(
+	select a.TraineeID, t.TraineeName, (cast(count(*) as float)/s.TotalSession)*100 as AttendanceRate from Attendance a
+	join (select TraineeID, count(*) as TotalSession from Attendance group by TraineeID) s on a.TraineeID = s.TraineeID
+	join Trainees t on t.TraineeID = a.TraineeID
+	where a.StatusID = 601 
+	group by a.TraineeID, t.TraineeName, s.TotalSession
+)
+
+create trigger tr_Warning
+on Attendance
+after insert 
+as
+begin
+	insert into Warning (TraineeID, Percentage)
+	select TraineeID, AttendanceRate from dbo.GetPrecentage()
+	where AttendanceRate < 70
+end
+
+select * from Warning;
+
+insert into Attendance values('2025-06-20', 301, 1, 601,'10:07:11.6966667')
